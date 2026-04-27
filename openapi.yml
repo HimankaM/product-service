@@ -1,0 +1,218 @@
+openapi: 3.0.3
+info:
+  title: Product Service API
+  description: |
+    Microservice for managing e-commerce products.
+    Part of a microservices-based e-commerce application.
+    Communicates with Order Service for stock reservation.
+  version: 1.0.0
+  contact:
+    name: SE4010 Assignment
+
+servers:
+  - url: http://localhost:8081
+    description: Local development
+  - url: http://<your-ecs-public-ip>:8081
+    description: AWS ECS deployment
+
+tags:
+  - name: Products
+    description: Product management endpoints
+  - name: Internal
+    description: Endpoints called by other microservices
+
+paths:
+  /api/products:
+    get:
+      tags: [Products]
+      summary: Get all products
+      responses:
+        '200':
+          description: List of all products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Product'
+    post:
+      tags: [Products]
+      summary: Create a new product
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProductRequest'
+            example:
+              name: "Laptop Pro 15"
+              description: "High-performance laptop"
+              price: 1299.99
+              stockQuantity: 50
+      responses:
+        '201':
+          description: Product created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '400':
+          description: Validation error
+
+  /api/products/available:
+    get:
+      tags: [Products]
+      summary: Get products with stock > 0
+      responses:
+        '200':
+          description: List of available products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Product'
+
+  /api/products/{id}:
+    get:
+      tags: [Products]
+      summary: Get product by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Product found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '404':
+          description: Product not found
+    put:
+      tags: [Products]
+      summary: Update a product
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProductRequest'
+      responses:
+        '200':
+          description: Product updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '404':
+          description: Product not found
+    delete:
+      tags: [Products]
+      summary: Delete a product
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Product deleted
+        '404':
+          description: Product not found
+
+  /api/products/{id}/reserve:
+    post:
+      tags: [Internal]
+      summary: Reserve stock (called by Order Service)
+      description: |
+        This endpoint is the inter-service communication entry point.
+        Called by Order Service when creating an order to reserve product stock.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: quantity
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Stock reserved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReserveResponse'
+        '409':
+          description: Insufficient stock
+
+  /api/products/health:
+    get:
+      tags: [Products]
+      summary: Health check
+      responses:
+        '200':
+          description: Service is healthy
+
+components:
+  schemas:
+    Product:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+        stockQuantity:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateProductRequest:
+      type: object
+      required: [name, price, stockQuantity]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+          minimum: 0.01
+        stockQuantity:
+          type: integer
+          minimum: 0
+
+    ReserveResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        productId:
+          type: integer
+        quantity:
+          type: integer
